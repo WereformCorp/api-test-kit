@@ -3,16 +3,21 @@ import mongoose from "mongoose";
 /**
  * Database CRUD & Integrity Test Suite (DCITS) - Modular Template
  *
- * Updated:
- * - Supports BOTH local DB + API-based testing
- * - Dynamic DB URI handling
- * - Per-test control via `local` flag
+ * Purpose:
+ * - Compose a DB connection check and user CRUD/integrity tests from modular helpers.
  *
- * Env Control:
- * - RUN_DB=true → runs DB connection tests
- * - RUN_USER=true → runs user tests
- * - API_BASE_URL → used for API mode (optional)
- * - DB_URI → custom DB connection (optional)
+ * Runtime controls:
+ * - `RUN_DB === "true"` enables DB connection tests.
+ * - `RUN_USER === "true"` enables user CRUD/integrity tests.
+ *
+ * Mode switching (per test case):
+ * - User helpers accept arrays of objects with `local: boolean`.
+ * - `local: true`  -> run operations directly with Mongoose.
+ * - `local: false` -> run operations through the API using `axios`.
+ *
+ * API mode expectations:
+ * - Provide `API_BASE_URL` and (optionally) `USER_API_ENDPOINT` so axios calls hit your service.
+ * - Assertions still verify state using the shared Mongoose model, so API writes should affect the same DB.
  */
 
 import registerDBConnectionTests from "./db/db.connect.helper";
@@ -25,11 +30,10 @@ jest.setTimeout(10000);
 
 describe("User DB Operations (Modular)", () => {
   /**
-   * DB CONNECTION
-   * Uses:
-   * - config.uri
-   * - OR process.env.DB_URI
-   * - OR fallback local
+   * Registers the DB connection suite.
+   *
+   * @param config.uri - Optional MongoDB URI override.
+   * If omitted, the helper falls back to `process.env.DB_URI` (and then a local default).
    */
   registerDBConnectionTests({
     uri: process.env.DB_URI, // optional (prod or custom)
@@ -37,8 +41,10 @@ describe("User DB Operations (Modular)", () => {
 
   /**
    * USER CREATE
-   * local = true  → Mongoose
-   * local = false → API
+   * Each case controls execution mode via `local`.
+   *
+   * @param cases - Array of:
+   * `{ email, password, label?, local, API_BASE_URL?, USER_API_ENDPOINT?, contentType? }`
    */
   registerUserCreateTest([
     {
@@ -58,7 +64,10 @@ describe("User DB Operations (Modular)", () => {
   ]);
 
   /**
-   * DUPLICATE CHECK
+   * DUPLICATE CHECK (unique email integrity)
+   *
+   * @param cases - Array of:
+   * `{ email, password, label?, local, API_BASE_URL?, USER_API_ENDPOINT?, contentType? }`
    */
   rejectUserDuplicateTest([
     {
@@ -71,6 +80,9 @@ describe("User DB Operations (Modular)", () => {
 
   /**
    * UPDATE TESTS
+   *
+   * @param cases - Array of:
+   * `{ oldEmail, newEmail, password, label?, local, API_BASE_URL?, USER_API_ENDPOINT?, contentType? }`
    */
   updateUserTest([
     {
@@ -84,6 +96,9 @@ describe("User DB Operations (Modular)", () => {
 
   /**
    * DELETE TESTS
+   *
+   * @param cases - Array of:
+   * `{ email, password, label?, local, API_BASE_URL?, USER_API_ENDPOINT?, contentType? }`
    */
   deleteUserTest([
     {

@@ -7,6 +7,10 @@ import axios from "axios";
  * Registers a Jest suite that validates the “create” behavior for a test-only
  * Mongoose `User` model.
  *
+ * Each test case can run in two modes:
+ * - `local: true`  -> create directly with Mongoose.
+ * - `local: false` -> create via API (axios POST) and then assert state via the same Mongoose model.
+ *
  * Execution control:
  * - Set `RUN_USER === "true"` to enable these tests.
  * - Otherwise, the suite is skipped via `describe.skip`.
@@ -32,12 +36,17 @@ const UserModel = mongoose.models.User || model<User>("User", userSchema);
  * @property email User email to insert.
  * @property password User password to insert.
  * @property label Optional test label shown in Jest output.
+ * @property local Select execution mode for this case.
+ *                  `true` = Mongoose create, `false` = API create via axios.
+ * @property API_BASE_URL Optional base URL for API mode (defaults to `process.env.API_BASE_URL`).
+ * @property USER_API_ENDPOINT Optional user creation endpoint (defaults to derived apiBaseUrl).
+ * @property contentType Optional request Content-Type header (defaults to `application/json`).
  */
 type UserTestCase = {
   email: string;
   password: string;
   label?: string;
-  local: boolean; // If true, only runs this test case (skips others)
+  local: boolean; // true -> Mongoose create, false -> API axios POST
   API_BASE_URL?: string; // Optional API base URL for external API tests
   USER_API_ENDPOINT?: string; // Optional API endpoint for user creation (e.g., "users")
   contentType?: string; // Optional content type for API requests (default: "application/json")

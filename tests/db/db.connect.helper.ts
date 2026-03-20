@@ -2,13 +2,35 @@
 
 import mongoose from "mongoose";
 
+/**
+ * DB Connection Test Helper
+ *
+ * Registers a Jest suite that attempts to connect to MongoDB and verifies the
+ * connection is established.
+ *
+ * Execution control:
+ * - Set `RUN_DB === "true"` to enable these tests.
+ * - Otherwise, the suite is skipped via `describe.skip`.
+ */
+
 jest.setTimeout(10000);
 
+/**
+ * Optional configuration for DB connection.
+ * @property uri Optional MongoDB URI override (highest priority).
+ * @property fallbackLocalUri Optional fallback URI (used if `uri`/`process.env.DB_URI` are not set).
+ */
 type DBConfig = {
   uri?: string; // user provided (prod or local)
   fallbackLocalUri?: string; // default local
 };
 
+/**
+ * Registers the “Database Connection” test suite.
+ *
+ * @param config Optional DB config (uri/fallback override).
+ * @returns void
+ */
 const registerDBConnectionTests = (config?: DBConfig) => {
   const run = process.env.RUN_DB === "true";
 
