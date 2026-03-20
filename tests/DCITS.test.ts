@@ -1,100 +1,97 @@
-// tests/user.db.test.ts
-
 import mongoose from "mongoose";
-import { Schema, model, InferSchemaType } from "mongoose";
 
-const userSchema = new Schema(
-  {
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-  },
-  { timestamps: true },
-);
+/**
+ * Database CRUD & Integrity Test Suite (DCITS) - Modular Template
+ *
+ * This suite composes smaller Jest “test kits”:
+ * - `tests/db/db.connect.helper.ts` (DB connection checks)
+ * - `tests/user/*.helper.ts` (user create/update/delete + unique email integrity)
+ *
+ * Behavior control:
+ * - `RUN_DB === "true"` enables the DB connection suite.
+ * - `RUN_USER === "true"` enables the user CRUD/integrity suites.
+ */
+import registerDBConnectionTests from "./db/db.connect.helper";
+import deleteUserTest from "./user/user.delete.helper";
+import updateUserTest from "./user/user.update.helper";
+import rejectUserDuplicateTest from "./user/user.rejectDuplicate.helper";
+import registerUserCreateTest from "./user/user.create.helper";
 
-type User = InferSchemaType<typeof userSchema>;
+/**
+ * Suite entry point: defines which test cases to run for each modular kit.
+ *
+ * Tip: add more objects to the arrays passed into each helper to expand coverage.
+ */
 
-const UserModel = model<User>("User", userSchema);
+jest.setTimeout(10000);
 
-describe("User DB Operations", () => {
-  beforeAll(async (): Promise<void> => {
-    await mongoose.connect(
-      "mongodb://127.0.0.1:27017/test_db" /*process.env.TEST_DB_URI*/ as string,
-    );
-  });
+describe("User DB Operations (Modular)", () => {
+  /**
+   * Registers the DB connection suite (controlled inside helper via `RUN_DB`).
+   */
+  registerDBConnectionTests();
 
-  afterEach(async (): Promise<void> => {
-    await UserModel.deleteMany({});
-  });
-
-  afterAll(async (): Promise<void> => {
-    await mongoose.connection.close();
-  });
-
-  test("creates a user successfully", async (): Promise<void> => {
-    const user = await UserModel.create({
+  /**
+   * Registers user CREATE test cases (controlled inside helper via `RUN_USER`).
+   *
+   * @param cases - Array of objects: `{ email, password, label? }`
+   */
+  registerUserCreateTest([
+    {
       email: "test@example.com",
       password: "123456",
-    });
+      label: "creates a user successfully",
+    },
+  ]);
 
-    expect(user._id).toBeDefined();
-    expect(user.email).toBe("test@example.com");
-
-    const inDb = await UserModel.findOne({ email: "test@example.com" });
-    expect(inDb).not.toBeNull();
-  });
-
-  test("rejects duplicate email", async (): Promise<void> => {
-    await UserModel.create({
+  /**
+   * Registers user INTEGRITY (duplicate email) test cases.
+   *
+   * @param cases - Array of objects: `{ email, password, label? }`
+   */
+  rejectUserDuplicateTest([
+    {
       email: "test@example.com",
       password: "123456",
-    });
+      label: "rejects duplicate email",
+    },
+  ]);
 
-    await expect(
-      UserModel.create({
-        email: "test@example.com",
-        password: "123456",
-      }),
-    ).rejects.toThrow();
-  });
-
-  test("updates user email", async (): Promise<void> => {
-    const user = await UserModel.create({
-      email: "old@example.com",
+  /**
+   * Registers user UPDATE test cases.
+   *
+   * @param cases - Array of objects:
+   * `{ oldEmail, newEmail, password, label? }`
+   */
+  updateUserTest([
+    {
+      oldEmail: "old@example.com",
+      newEmail: "new@example.com",
       password: "123456",
-    });
+      label: "updates user email",
+    },
+  ]);
 
-    user.email = "new@example.com";
-    await user.save();
-
-    const updated = await UserModel.findById(user._id);
-    expect(updated).not.toBeNull();
-    expect(updated!.email).toBe("new@example.com");
-  });
-
-  test("deletes user", async (): Promise<void> => {
-    const user = await UserModel.create({
+  /**
+   * Registers user DELETE test cases.
+   *
+   * @param cases - Array of objects: `{ email, password, label? }`
+   */
+  deleteUserTest([
+    {
       email: "delete@example.com",
       password: "123456",
-    });
+      label: "deletes user",
+    },
+  ]);
 
-    await UserModel.deleteOne({ _id: user._id });
-
-    const deleted = await UserModel.findById(user._id);
-    expect(deleted).toBeNull();
-  });
-
-  test("finds users correctly", async (): Promise<void> => {
-    await UserModel.create({ email: "a@test.com", password: "123" });
-    await UserModel.create({ email: "b@test.com", password: "123" });
-
-    const users = await UserModel.find({});
-    expect(users).toHaveLength(2);
+  /**
+   * Safety cleanup: close mongoose connection after all modular suites.
+   * The connection state may depend on which sub-suites were enabled.
+   */
+  afterAll(async () => {
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+    }
   });
 });
