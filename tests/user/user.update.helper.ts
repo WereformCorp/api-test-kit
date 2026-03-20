@@ -1,19 +1,10 @@
-import mongoose, { Schema, model, InferSchemaType } from "mongoose";
+// ===================== USER UPDATE (AXIOS SUPPORT) =====================
 
-/**
- * User Update Test Helper
- *
- * Registers Jest tests that validate updating an existing `User` document
- * (save + read-back) using a test-only Mongoose model.
- *
- * Execution control:
- * - Set `RUN_USER === "true"` to enable these tests.
- * - Otherwise, the suite is skipped.
- */
+import mongoose, { Schema, model, InferSchemaType } from "mongoose";
+import axios from "axios";
 
 jest.setTimeout(10000);
 
-// Schema
 const userSchema = new Schema(
   {
     email: { type: String, required: true, unique: true },
@@ -25,29 +16,18 @@ const userSchema = new Schema(
 type User = InferSchemaType<typeof userSchema>;
 const UserModel = mongoose.models.User || model<User>("User", userSchema);
 
-// ---- TYPES ----
-/**
- * User update test case definition.
- * @property oldEmail Existing email used to seed the document.
- * @property newEmail New email to persist.
- * @property password Password used when creating the seed document.
- * @property label Optional test label shown in Jest output.
- */
 type UserTestCase = {
   oldEmail: string;
   newEmail: string;
   password: string;
   label?: string;
+  local: boolean;
+  API_BASE_URL?: string;
+  USER_API_ENDPOINT?: string;
+  contentType?: string;
 };
 
-// ---- REGISTER FUNCTION ----
-/**
- * Registers user update tests.
- *
- * @param UserTestCases - List of user update cases to run.
- * @returns void
- */
-const updateUserTest = (UserTestCases: UserTestCase[]) => {
+const updateUserTest = (cases: UserTestCase[]) => {
   const run = process.env.RUN_USER === "true";
 
   (run ? describe : describe.skip)("User Update Tests", () => {
@@ -55,21 +35,53 @@ const updateUserTest = (UserTestCases: UserTestCase[]) => {
       await UserModel.deleteMany({});
     });
 
-    UserTestCases.forEach(({ oldEmail, newEmail, password, label }) => {
-      test(label || "updates user email", async (): Promise<void> => {
-        const user = await UserModel.create({
-          email: oldEmail,
+    cases.forEach(
+      (
+        {
+          oldEmail,
+          newEmail,
           password,
+          label,
+          local,
+          API_BASE_URL,
+          USER_API_ENDPOINT,
+          contentType = "application/json",
+        },
+        index,
+      ) => {
+        test(label || `update user [${index}]`, async () => {
+          let user;
+
+          const base = process.env.API_BASE_URL || API_BASE_URL;
+          const endpoint = USER_API_ENDPOINT || "users";
+
+          if (local) {
+            user = await UserModel.create({
+              email: oldEmail,
+              password,
+            });
+
+            user.email = newEmail;
+            await user.save();
+          } else {
+            await axios.post(
+              `${base}/${endpoint}`,
+              { email: oldEmail, password },
+              { headers: { "Content-Type": contentType } },
+            );
+
+            await axios.put(
+              `${base}/${endpoint}`,
+              { email: newEmail },
+              { headers: { "Content-Type": contentType } },
+            );
+          }
+
+          const updated = await UserModel.findOne({ email: newEmail });
+          expect(updated).not.toBeNull();
         });
-
-        user.email = newEmail;
-        await user.save();
-
-        const updated = await UserModel.findById(user._id);
-        expect(updated).not.toBeNull();
-        expect(updated!.email).toBe(newEmail);
-      });
-    });
+      },
+    );
   });
 };
 

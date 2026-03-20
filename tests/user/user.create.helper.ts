@@ -1,4 +1,5 @@
 import mongoose, { Schema, model, InferSchemaType } from "mongoose";
+import axios from "axios";
 
 /**
  * User Create Test Helper
@@ -36,6 +37,10 @@ type UserTestCase = {
   email: string;
   password: string;
   label?: string;
+  local: boolean; // If true, only runs this test case (skips others)
+  API_BASE_URL?: string; // Optional API base URL for external API tests
+  USER_API_ENDPOINT?: string; // Optional API endpoint for user creation (e.g., "users")
+  contentType?: string; // Optional content type for API requests (default: "application/json")
 };
 
 // ---- REGISTER FUNCTION ----
@@ -53,25 +58,55 @@ const registerUserCreateTest = (cases: UserTestCase[]) => {
       await UserModel.deleteMany({});
     });
 
-    cases.forEach(({ email, password, label }, index) => {
-      test(label || `Create user [${index}]`, async () => {
-        const user = await UserModel.create({ email, password });
+    cases.forEach(
+      (
+        {
+          email,
+          password,
+          label,
+          local,
+          API_BASE_URL,
+          USER_API_ENDPOINT,
+          contentType = "application/json",
+        },
+        index,
+      ) => {
+        test(label || `Create user [${index}]`, async () => {
+          let user;
+          let apiBaseUrl = process.env.API_BASE_URL || API_BASE_URL;
+          let userApiEndpoint = apiBaseUrl || USER_API_ENDPOINT;
 
-        expect(user._id).toBeDefined();
-        expect(user.email).toBe(email);
+          if (local) user = await UserModel.create({ email, password });
+          else
+            user = await axios.post(
+              `${process.env.API_BASE_URL}/${userApiEndpoint}`,
+              {
+                email,
+                password,
+              },
+              {
+                headers: {
+                  "Content-Type": contentType,
+                },
+              },
+            );
 
-        console.table([
-          {
-            label: "CREATE_USER",
-            email,
-            exists: !!user,
-          },
-        ]);
+          expect(user._id).toBeDefined();
+          expect(user.email).toBe(email);
 
-        const inDb = await UserModel.findOne({ email });
-        expect(inDb).not.toBeNull();
-      });
-    });
+          console.table([
+            {
+              label: "CREATE_USER",
+              email,
+              exists: !!user,
+            },
+          ]);
+
+          const inDb = await UserModel.findOne({ email });
+          expect(inDb).not.toBeNull();
+        });
+      },
+    );
   });
 };
 

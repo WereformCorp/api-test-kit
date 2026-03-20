@@ -1,19 +1,10 @@
-import mongoose, { Schema, model, InferSchemaType } from "mongoose";
+// ===================== USER DUPLICATE (AXIOS SUPPORT) =====================
 
-/**
- * User Duplicate-Rejection Test Helper
- *
- * Registers a Jest suite that validates the schema integrity rule for `email`
- * marked as `unique: true` in the test schema.
- *
- * Execution control:
- * - Set `RUN_USER === "true"` to enable these tests.
- * - Otherwise, the suite is skipped.
- */
+import mongoose, { Schema, model, InferSchemaType } from "mongoose";
+import axios from "axios";
 
 jest.setTimeout(10000);
 
-// Schema
 const userSchema = new Schema(
   {
     email: { type: String, required: true, unique: true },
@@ -25,27 +16,17 @@ const userSchema = new Schema(
 type User = InferSchemaType<typeof userSchema>;
 const UserModel = mongoose.models.User || model<User>("User", userSchema);
 
-// ---- TYPES ----
-/**
- * Duplicate email rejection test case definition.
- * @property email Email to seed, then attempt to insert again.
- * @property password Password to seed with.
- * @property label Optional test label shown in Jest output.
- */
 type UserTestCase = {
   email: string;
   password: string;
   label?: string;
+  local: boolean;
+  API_BASE_URL?: string;
+  USER_API_ENDPOINT?: string;
+  contentType?: string;
 };
 
-// ---- REGISTER FUNCTION ----
-/**
- * Registers “reject duplicate email” tests.
- *
- * @param UserTestCases - List of duplicate email cases to run.
- * @returns void
- */
-const rejectUserDuplicateTest = (UserTestCases: UserTestCase[]) => {
+const rejectUserDuplicateTest = (cases: UserTestCase[]) => {
   const run = process.env.RUN_USER === "true";
 
   (run ? describe : describe.skip)("User Reject Duplicate Test", () => {
@@ -53,21 +34,47 @@ const rejectUserDuplicateTest = (UserTestCases: UserTestCase[]) => {
       await UserModel.deleteMany({});
     });
 
-    UserTestCases.forEach(({ email, password, label }) => {
-      test(label || "rejects duplicate email", async (): Promise<void> => {
-        await UserModel.create({
+    cases.forEach(
+      (
+        {
           email,
           password,
-        });
+          label,
+          local,
+          API_BASE_URL,
+          USER_API_ENDPOINT,
+          contentType = "application/json",
+        },
+        index,
+      ) => {
+        test(label || `reject duplicate [${index}]`, async () => {
+          let user;
 
-        await expect(
-          UserModel.create({
-            email,
-            password,
-          }),
-        ).rejects.toThrow();
-      });
-    });
+          const base = process.env.API_BASE_URL || API_BASE_URL;
+          const endpoint = USER_API_ENDPOINT || "users";
+
+          if (local) {
+            user = await UserModel.create({ email, password });
+          } else {
+            user = await axios.post(
+              `${base}/${endpoint}`,
+              { email, password },
+              { headers: { "Content-Type": contentType } },
+            );
+          }
+
+          await expect(
+            local
+              ? UserModel.create({ email, password })
+              : axios.post(
+                  `${base}/${endpoint}`,
+                  { email, password },
+                  { headers: { "Content-Type": contentType } },
+                ),
+          ).rejects.toThrow();
+        });
+      },
+    );
   });
 };
 

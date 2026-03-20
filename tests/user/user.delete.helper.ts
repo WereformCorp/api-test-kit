@@ -1,19 +1,10 @@
-import mongoose, { Schema, model, InferSchemaType } from "mongoose";
+// ===================== USER DELETE (AXIOS SUPPORT) =====================
 
-/**
- * User Delete Test Helper
- *
- * Registers Jest tests that validate deleting a `User` document
- * and confirming it no longer exists in the database.
- *
- * Execution control:
- * - Set `RUN_USER === "true"` to enable these tests.
- * - Otherwise, the suite is skipped.
- */
+import mongoose, { Schema, model, InferSchemaType } from "mongoose";
+import axios from "axios";
 
 jest.setTimeout(10000);
 
-// Schema
 const userSchema = new Schema(
   {
     email: { type: String, required: true, unique: true },
@@ -25,27 +16,17 @@ const userSchema = new Schema(
 type User = InferSchemaType<typeof userSchema>;
 const UserModel = mongoose.models.User || model<User>("User", userSchema);
 
-// ---- TYPES ----
-/**
- * User delete test case definition.
- * @property email Email used to seed the document.
- * @property password Password used when creating the seed document.
- * @property label Optional test label shown in Jest output.
- */
 type UserTestCase = {
   email: string;
   password: string;
   label?: string;
+  local: boolean;
+  API_BASE_URL?: string;
+  USER_API_ENDPOINT?: string;
+  contentType?: string;
 };
 
-// ---- REGISTER FUNCTION ----
-/**
- * Registers user delete tests.
- *
- * @param UserTestCases - List of delete cases to run.
- * @returns void
- */
-const deleteUserTest = (UserTestCases: UserTestCase[]) => {
+const deleteUserTest = (cases: UserTestCase[]) => {
   const run = process.env.RUN_USER === "true";
 
   (run ? describe : describe.skip)("User Delete Tests", () => {
@@ -53,19 +34,44 @@ const deleteUserTest = (UserTestCases: UserTestCase[]) => {
       await UserModel.deleteMany({});
     });
 
-    UserTestCases.forEach(({ email, password, label }) => {
-      test(label || "deletes user", async (): Promise<void> => {
-        const user = await UserModel.create({
+    cases.forEach(
+      (
+        {
           email,
           password,
+          label,
+          local,
+          API_BASE_URL,
+          USER_API_ENDPOINT,
+          contentType = "application/json",
+        },
+        index,
+      ) => {
+        test(label || `delete user [${index}]`, async () => {
+          const base = process.env.API_BASE_URL || API_BASE_URL;
+          const endpoint = USER_API_ENDPOINT || "users";
+
+          if (local) {
+            const user = await UserModel.create({ email, password });
+            await UserModel.deleteOne({ _id: user._id });
+
+            const deleted = await UserModel.findById(user._id);
+            expect(deleted).toBeNull();
+          } else {
+            const res = await axios.post(
+              `${base}/${endpoint}`,
+              { email, password },
+              { headers: { "Content-Type": contentType } },
+            );
+
+            await axios.delete(`${base}/${endpoint}/${res.data._id}`);
+
+            const deleted = await UserModel.findOne({ email });
+            expect(deleted).toBeNull();
+          }
         });
-
-        await UserModel.deleteOne({ _id: user._id });
-
-        const deleted = await UserModel.findById(user._id);
-        expect(deleted).toBeNull();
-      });
-    });
+      },
+    );
   });
 };
 
