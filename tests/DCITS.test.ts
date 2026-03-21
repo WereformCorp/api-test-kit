@@ -1,3 +1,4 @@
+import "dotenv/config";
 import mongoose from "mongoose";
 
 /**
@@ -25,26 +26,74 @@ import deleteUserTest from "./user/user.delete.helper";
 import updateUserTest from "./user/user.update.helper";
 import rejectUserDuplicateTest from "./user/user.rejectDuplicate.helper";
 import registerUserCreateTest from "./user/user.create.helper";
+import signupTest from "./auth/signup.helper";
+import loginTest from "./auth/login.helper";
+import logoutTest from "./auth/logout.helper";
+/**
+ * Database CRUD & Integrity Test Suite (DCITS) - Modular Template
+ *
+ * Order:
+ * 1. DB Connection
+ * 2. Auth (Signup → Login → Logout)
+ * 3. CRUD Operations
+ */
 
 jest.setTimeout(10000);
 
 describe("User DB Operations (Modular)", () => {
   /**
-   * Registers the DB connection suite.
-   *
-   * @param config.uri - Optional MongoDB URI override.
-   * If omitted, the helper falls back to `process.env.DB_URI` (and then a local default).
+   * DB CONNECTION
    */
   registerDBConnectionTests({
-    uri: process.env.DB_URI, // optional (prod or custom)
+    uri: process.env.DB_URI,
   });
 
   /**
-   * USER CREATE
-   * Each case controls execution mode via `local`.
-   *
-   * @param cases - Array of:
-   * `{ email, password, label?, local, API_BASE_URL?, USER_API_ENDPOINT?, contentType? }`
+   * ===================== AUTH FLOW =====================
+   */
+
+  /**
+   * SIGNUP
+   */
+  signupTest([
+    {
+      email: "signup@test.com",
+      password: "123456",
+      passwordConfirm: "123456",
+      username: "signupUser",
+      label: "signup locally",
+      local: true,
+    },
+  ]);
+
+  /**
+   * LOGIN
+   */
+  loginTest([
+    {
+      email: "login@test.com",
+      password: "123456",
+      label: "login locally",
+      local: true,
+    },
+  ]);
+
+  /**
+   * LOGOUT
+   */
+  logoutTest([
+    {
+      label: "logout locally",
+      local: true,
+    },
+  ]);
+
+  /**
+   * ===================== CRUD =====================
+   */
+
+  /**
+   * CREATE
    */
   registerUserCreateTest([
     {
@@ -53,21 +102,10 @@ describe("User DB Operations (Modular)", () => {
       label: "creates user locally",
       local: true,
     },
-    {
-      email: "api@test.com",
-      password: "123456",
-      label: "creates user via API",
-      local: true,
-      // API_BASE_URL: process.env.API_BASE_URL,
-      // USER_API_ENDPOINT: "users",
-    },
   ]);
 
   /**
-   * DUPLICATE CHECK (unique email integrity)
-   *
-   * @param cases - Array of:
-   * `{ email, password, label?, local, API_BASE_URL?, USER_API_ENDPOINT?, contentType? }`
+   * DUPLICATE CHECK
    */
   rejectUserDuplicateTest([
     {
@@ -79,10 +117,7 @@ describe("User DB Operations (Modular)", () => {
   ]);
 
   /**
-   * UPDATE TESTS
-   *
-   * @param cases - Array of:
-   * `{ oldEmail, newEmail, password, label?, local, API_BASE_URL?, USER_API_ENDPOINT?, contentType? }`
+   * UPDATE
    */
   updateUserTest([
     {
@@ -95,10 +130,7 @@ describe("User DB Operations (Modular)", () => {
   ]);
 
   /**
-   * DELETE TESTS
-   *
-   * @param cases - Array of:
-   * `{ email, password, label?, local, API_BASE_URL?, USER_API_ENDPOINT?, contentType? }`
+   * DELETE
    */
   deleteUserTest([
     {

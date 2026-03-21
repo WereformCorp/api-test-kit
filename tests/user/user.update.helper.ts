@@ -94,6 +94,7 @@ const updateUserTest = (cases: UserTestCase[]) => {
 
             user.email = newEmail;
             await user.save();
+            expect(user.email).toBe(newEmail);
           } else {
             await axios.post(
               `${base}/${endpoint}`,
