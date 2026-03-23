@@ -26,9 +26,9 @@ import deleteUserTest from "./user/user.delete.helper";
 import updateUserTest from "./user/user.update.helper";
 import rejectUserDuplicateTest from "./user/user.rejectDuplicate.helper";
 import registerUserCreateTest from "./user/user.create.helper";
-import signupTest from "./auth/signup.helper";
-import loginTest from "./auth/login.helper";
-import logoutTest from "./auth/logout.helper";
+import signupTest from "./AuthN/signup.helper";
+import loginTest from "./AuthN/login.helper";
+import logoutTest from "./AuthN/logout.helper";
 /**
  * Database CRUD & Integrity Test Suite (DCITS) - Modular Template
  *
