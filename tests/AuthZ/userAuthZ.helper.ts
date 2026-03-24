@@ -17,7 +17,8 @@ const authorizationTest = (
   tokenA: string,
   tokenB: string,
   userId: string,
-  USER_ENDPOINT: string,
+  USER_ENDPOINT: string = "users",
+  email: string,
 ) => {
   const run = process.env.RUN_AUTHZ === "true";
 
@@ -29,7 +30,7 @@ const authorizationTest = (
       try {
         await axios.patch(
           `${API_BASE_URL}/${USER_ENDPOINT}/${userId}`,
-          { email: "hacked@test.com" },
+          { email },
           { headers: { Authorization: `Bearer ${tokenB}` } },
         );
       } catch (err: any) {
